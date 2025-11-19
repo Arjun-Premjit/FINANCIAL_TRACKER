@@ -75,18 +75,24 @@ def get_connection():
 def load_data_from_gsheet(worksheet, month_name, year):
     """Loads a single month's record from the Google Sheet using the passed worksheet object."""
     if not worksheet:
-        # This should not be hit if st.stop() is used, but kept for function completeness
         return {}
     
     try:
+        # Fetches all rows, turning them into a list of dictionaries where keys are column headers.
         records = worksheet.get_all_records()
-        for record in records:
-            sheet_year = str(record.get("Year")) 
-            
-            if record.get("Month") == month_name and sheet_year == str(year):
-                return record
         
-        return {}
+        # Ensure year is treated as string for comparison, as data from gspread is often string/mixed.
+        target_year_str = str(year)
+        
+        for record in records:
+            # Cast the 'Year' column from the record to string for consistent comparison
+            sheet_year_str = str(record.get("Year", ""))
+            
+            # Case-sensitive check for Month and Year
+            if record.get("Month") == month_name and sheet_year_str == target_year_str:
+                return record # Found a matching record
+        
+        return {} # Returns empty dict if no match found
 
     except Exception as e:
         st.error(f"Error loading data from Google Sheet: {e}")
@@ -105,28 +111,42 @@ def save_to_gsheet(worksheet, data_row):
         # 2. Handle headers/columns (Ensuring new expense columns are added)
         if df_existing.empty:
             final_columns = df_new.columns.tolist()
+            # Append headers to the sheet if it's empty
             worksheet.append_row(final_columns, value_input_option='USER_ENTERED')
+            # Re-fetch the existing data to include the new header row for the next step's check
+            df_existing = pd.DataFrame(worksheet.get_all_records())
             st.success("Sheet headers initialized.")
         else:
             existing_cols = df_existing.columns.tolist()
             new_cols = df_new.columns.tolist()
             final_columns = existing_cols
+            # Ensure all new columns are present in the final column list
             for col in new_cols:
                 if col not in final_columns:
                     final_columns.append(col)
 
         # 3. Prepare data for saving
+        # Reindex the new data row to match the overall column order, filling missing columns with 0.0
         df_to_save = df_new.reindex(columns=final_columns, fill_value=0.0)
         values = df_to_save.iloc[0].tolist()
 
         # 4. Check for existing entry (Month/Year match)
-        month_year_check = (df_existing['Month'] == data_row['Month']) & (df_existing['Year'].astype(str) == str(data_row['Year']))
+        # Ensure 'Year' column in existing DataFrame is treated as string for reliable comparison
+        if 'Year' in df_existing.columns:
+            month_year_check = (df_existing['Month'] == data_row['Month']) & (df_existing['Year'].astype(str) == str(data_row['Year']))
+        else:
+            month_year_check = pd.Series(False, index=df_existing.index) # If no 'Year' column, assume no match
         
         if month_year_check.any():
             # Update existing row
             # +2: +1 for 1-based indexing, +1 for the header row
             row_index = df_existing[month_year_check].index[0] + 2 
-            worksheet.update(f'A{row_index}', [values])
+            
+            # Update entire row starting from column A
+            # We need the range in A1 notation. If the sheet has Z columns, we need to update that many cells.
+            end_col = gspread.utils.rowcol_to_a1(1, len(final_columns))[0]
+            range_to_update = f'A{row_index}:{end_col}{row_index}'
+            worksheet.update(range_to_update, [values], value_input_option='USER_ENTERED')
             st.success(f"Data for {data_row['Month']} {data_row['Year']} successfully UPDATED in Google Sheet (Row {row_index}).")
         else:
             # Append new row
@@ -176,30 +196,55 @@ if 'initialized' not in st.session_state:
             
     st.session_state.grocery_items = {}
     for i in range(1, 21):
+        # Initialize grocery items with a default name and amount
         st.session_state.grocery_items[f"Grocery_Item_{i}"] = {"name": f"Item {i}", "amount": 0.0}
 
 def update_session_state(data):
-    """Updates session state with loaded data."""
+    """Updates session state with loaded data. FIXES THE RERUN CRASH."""
+    
+    # 1. Handle case where no data is found for the selected month/year
     if not data:
         st.warning(f"No existing data found for {st.session_state.input_month} {st.session_state.input_year}. Resetting amounts.")
-        for key in st.session_state.keys():
-            if isinstance(st.session_state.get(key), (float, int)) and key not in ['input_year']:
-                st.session_state[key] = 0.0
-            if key in st.session_state.grocery_items:
-                 st.session_state.grocery_items[key]['amount'] = 0.0
+        
+        # Reset Income and Savings
+        st.session_state.income = 0.0
+        st.session_state.savings = 0.0
+        
+        # Reset Fixed Expenses (Iterate directly over fixed keys for safety)
+        fixed_keys = ['House_Tax_A', 'Water_Tax', 'Drainage_Tax', 'House_Tax_B', 
+                      'Electricity_House_A', 'Electricity_House_B', 'RD', 'GAS', 
+                      'Telephone_Phone1', 'Telephone_Phone2', 'Telephone_Phone3', 'Telephone_Landline',
+                      'Rice', 'Milk', 'Other_Expenses']
+        for k in fixed_keys:
+            st.session_state[k] = 0.0
+        
+        # Reset Grocery Items (Iterate directly over the nested dict for safety - FIX)
+        for key in st.session_state.grocery_items.keys():
+            # Only reset the amount, keep the user's last entered item name
+            st.session_state.grocery_items[key]['amount'] = 0.0
+            
         return
     
+    # 2. Load data from the matching record
     st.session_state.income = float(data.get('Income', 0.0))
     st.session_state.savings = float(data.get('Savings', 0.0))
     
+    # Load Fixed Expenses
     for k in ['House_Tax_A', 'Water_Tax', 'Drainage_Tax', 'House_Tax_B', 
               'Electricity_House_A', 'Electricity_House_B', 'RD', 'GAS', 
               'Telephone_Phone1', 'Telephone_Phone2', 'Telephone_Phone3', 'Telephone_Landline',
               'Rice', 'Milk', 'Other_Expenses']:
         st.session_state[k] = float(data.get(k, 0.0))
         
+    # Load Grocery Items
     for key in st.session_state.grocery_items.keys():
+        # Load the amount
         st.session_state.grocery_items[key]['amount'] = float(data.get(key, 0.0))
+        
+        # Check if a corresponding name column exists in the sheet data (e.g., Grocery_Item_1_name)
+        # Although the current save logic only saves the amount, if the user manually added a name 
+        # column in the sheet, this is how you would load it. Sticking to the current data model 
+        # where the name is stored only in the session state, we load the amount only.
 
 
 # --- Input / UI Layout ---
@@ -219,10 +264,12 @@ with col_load:
     load_button = st.button("LOAD EXISTING DATA", use_container_width=True)
     if load_button:
         with st.spinner(f"Loading data for {st.session_state.input_month} {st.session_state.input_year}..."):
+            # Load data
             loaded_data = load_data_from_gsheet(worksheet, st.session_state.input_month, st.session_state.input_year)
+            # Update state (where the crash fix was implemented)
             update_session_state(loaded_data)
-            # Rerun is safe here because connection failure is handled by st.stop() earlier
-            st.experimental_rerun()
+            # Rerun is now safe
+            st.experimental_rerun() # Line 225
 
 # --- Income and Savings ---
 st.header("Income & Savings")
@@ -337,6 +384,7 @@ if st.button("SAVE EXPENSES TO GOOGLE SHEET", use_container_width=True):
             data_to_save[k] = st.session_state.get(k, 0.0)
             
         for k, v in st.session_state.grocery_items.items():
+            # Only save the amount for the Grocery Item key, not the name
             data_to_save[k] = v['amount']
 
         save_to_gsheet(worksheet, data_to_save)
