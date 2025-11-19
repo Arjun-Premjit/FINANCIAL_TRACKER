@@ -138,7 +138,7 @@ def get_connection():
         sheet_id = st.secrets["google"]["sheet_id"]
         
         # Access the SECOND sheet (index 1), maintaining original logic (WORKSHEET_TITLE = "Sheet2")
-        worksheet = client.open_by_key(sheet_id).get_worksheet(1)
+        worksheet = client.open_by_key(sheet_id).sheet2
         return worksheet
         
     except Exception as e:
@@ -448,4 +448,5 @@ if not df_chart.empty:
         st.plotly_chart(fig_pie, use_container_width=True)
 else:
     st.info("Enter some expenses to view the charts!")
+
 
