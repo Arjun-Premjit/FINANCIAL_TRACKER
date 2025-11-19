@@ -2,6 +2,7 @@ import streamlit as st
 import datetime
 import pandas as pd
 import gspread
+import json
 from google.oauth2.service_account import Credentials
 import plotly.express as px
 import calendar
@@ -447,3 +448,4 @@ if not df_chart.empty:
         st.plotly_chart(fig_pie, use_container_width=True)
 else:
     st.info("Enter some expenses to view the charts!")
+
