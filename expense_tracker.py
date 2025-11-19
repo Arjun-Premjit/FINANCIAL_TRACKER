@@ -2,7 +2,6 @@ import streamlit as st
 import datetime
 import pandas as pd
 import gspread
-import json
 from google.oauth2.service_account import Credentials
 import plotly.express as px
 import calendar
@@ -21,140 +20,66 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for dark, eye-catchy theme and to remove borders/grid lines
+# Custom CSS for dark, eye-catchy theme
 st.markdown(
     """
     <style>
-    /* Main Streamlit App styling */
-    .stApp {
-        background-color: #0d1117; /* Dark Navy/Black background */
-        color: #ffffff;
-    }
-    
-    /* Header/Title */
-    .stTitle {
-        color: #00ffff; /* Electric Cyan for title */
-        font-weight: 700;
-        text-align: center;
-    }
-    
-    /* Input Labels and Text */
-    .stTextInput label, .stNumberInput label, .stSelectbox label, h1, h2, h3, h4, h5, h6 {
-        color: #e6e6e6; /* Light gray text */
-    }
-    
-    /* Expander Container Style (Darker background, subtle cyan border) */
-    .streamlit-expanderHeader {
-        background-color: #161b22; /* Darker than background */
-        color: #00ffff;
-        font-weight: bold;
-        border-radius: 8px;
-        margin-top: 10px;
-        border: 1px solid #00ffff50; /* Subtle cyan border */
-    }
-    
-    /* Expander Content (Removing inner grid lines/borders) */
-    .streamlit-expanderContent div[data-testid="stColumn"] > div {
-        border: none !important;
-        padding: 0px;
-    }
-
-    /* Column Headers (A) Tax Components, B) Separate Tax, etc.) */
-    .column-header {
-        font-size: 1.1em;
-        font-weight: 600;
-        color: #00ffff;
-        margin-bottom: 10px;
-        padding-top: 10px;
-    }
-    
-    /* Primary buttons */
-    .stButton>button {
-        background-color: #00ffff; /* Electric Cyan */
-        color: #0d1117; /* Dark text on button */
-        font-weight: bold;
-        border-radius: 8px;
-        transition: 0.2s;
-        border: none;
-        padding: 10px 20px;
-    }
-    .stButton>button:hover {
-        background-color: #00caca; 
-        color: #0d1117;
-    }
-
-    /* Total Metrics */
-    div[data-testid="stMetric"] label {
-        color: #e6e6e6;
-        font-size: 1.2em;
-    }
-    div[data-testid="stMetricValue"] {
-        color: #90ee90; /* Light Green for values */
-        font-weight: bold;
-    }
+    .stApp { background-color: #0d1117; color: #ffffff; }
+    .stTitle { color: #00ffff; font-weight: 700; text-align: center; }
+    .stTextInput label, .stNumberInput label, .stSelectbox label, h1, h2, h3, h4, h5, h6 { color: #e6e6e6; }
+    .streamlit-expanderHeader { background-color: #161b22; color: #00ffff; font-weight: bold; border-radius: 8px; margin-top: 10px; border: 1px solid #00ffff50; }
+    .column-header { font-size: 1.1em; font-weight: 600; color: #00ffff; margin-bottom: 10px; padding-top: 10px; }
+    .stButton>button { background-color: #00ffff; color: #0d1117; font-weight: bold; border-radius: 8px; transition: 0.2s; border: none; padding: 10px 20px; }
+    .stButton>button:hover { background-color: #00caca; color: #0d1117; }
+    div[data-testid="stMetricValue"] { color: #90ee90; font-weight: bold; }
     </style>
     """,
     unsafe_allow_html=True
 )
 
-# Set the main title
 st.markdown('<h1 class="stTitle">Financial Tracker 🧾💲🛒</h1>', unsafe_allow_html=True)
 
 
 # ----------------------------------------------------------------------
-# --- Google Sheets Functions (INTEGRATED NEW FORMAT) ---
+# --- Google Sheets Functions (RECTIFIED CONNECTION) ---
 # ----------------------------------------------------------------------
 
 @st.cache_resource(ttl=3600)
 def get_connection():
     """
-    Authenticates, opens the spreadsheet, and returns the specific gspread 
-    Worksheet object (Sheet2) using key-by-key credential fetching.
-    
-    NOTE: This format requires all credential keys (type, project_id, etc.) 
-    to be directly under the [google] section in secrets.toml.
+    Authenticate, connect to Google Sheets using the standard nested 
+    credential structure (st.secrets["google"]["credentials"]), 
+    and return the specific Worksheet object (Sheet2).
     """
     try:
-        # Load credentials by fetching each key individually from st.secrets["google"]
-        creds_dict = {
-            "type": st.secrets["google"]["type"],
-            "project_id": st.secrets["google"]["project_id"],
-            "private_key_id": st.secrets["google"]["private_key_id"],
-            "private_key": st.secrets["google"]["private_key"],
-            "client_email": st.secrets["google"]["client_email"],
-            "client_id": st.secrets["google"]["client_id"],
-            "auth_uri": st.secrets["google"]["auth_uri"],
-            "token_uri": st.secrets["google"]["token_uri"],
-            "auth_provider_x509_cert_url": st.secrets["google"]["auth_provider_x509_cert_url"],
-            "client_x509_cert_url": st.secrets["google"]["client_x509_cert_url"],
-            "universe_domain": st.secrets["google"]["universe_domain"]
-        }
+        # 1. Use the standard nested structure from app.py
+        creds_dict = st.secrets["google"]["credentials"]
         
         creds = Credentials.from_service_account_info(creds_dict, scopes=[
             "https://www.googleapis.com/auth/spreadsheets",
             "https://www.googleapis.com/auth/drive"
         ])
         client = gspread.authorize(creds)
+        
         sheet_id = st.secrets["google"]["sheet_id"]
         
-        # Access the SECOND sheet (index 1), maintaining original logic (WORKSHEET_TITLE = "Sheet2")
-        worksheet = client.open_by_key(sheet_id).sheet2
+        # 2. Access the second sheet (index 1) as implied by WORKSHEET_TITLE = "Sheet2"
+        worksheet = client.open_by_key(sheet_id).get_worksheet(1)
         return worksheet
         
     except Exception as e:
-        # Improved error message to reflect the new structure
-        st.error(f"Authentication Error: Could not connect to Google Sheets. Please verify all keys are directly under [google] in secrets.toml. Details: {e}")
+        # Display specific error message for easier debugging
+        st.error(f"Authentication Error: Could not connect to Google Sheets. Check your `secrets.toml` structure (should be nested under 'credentials') and sheet permissions. Details: {e}")
         return None
 
 def load_data_from_gsheet(worksheet, month_name, year):
     """Loads a single month's record from the Google Sheet using the passed worksheet object."""
     if not worksheet:
+        # This should not be hit if st.stop() is used, but kept for function completeness
         return {}
     
     try:
-        # Use the worksheet object directly
         records = worksheet.get_all_records()
-        
         for record in records:
             sheet_year = str(record.get("Year")) 
             
@@ -173,9 +98,11 @@ def save_to_gsheet(worksheet, data_row):
         return False
     
     try:
+        # 1. Load all existing data
         df_existing = pd.DataFrame(worksheet.get_all_records())
         df_new = pd.DataFrame([data_row])
         
+        # 2. Handle headers/columns (Ensuring new expense columns are added)
         if df_existing.empty:
             final_columns = df_new.columns.tolist()
             worksheet.append_row(final_columns, value_input_option='USER_ENTERED')
@@ -188,16 +115,21 @@ def save_to_gsheet(worksheet, data_row):
                 if col not in final_columns:
                     final_columns.append(col)
 
+        # 3. Prepare data for saving
         df_to_save = df_new.reindex(columns=final_columns, fill_value=0.0)
         values = df_to_save.iloc[0].tolist()
 
+        # 4. Check for existing entry (Month/Year match)
         month_year_check = (df_existing['Month'] == data_row['Month']) & (df_existing['Year'].astype(str) == str(data_row['Year']))
         
         if month_year_check.any():
+            # Update existing row
+            # +2: +1 for 1-based indexing, +1 for the header row
             row_index = df_existing[month_year_check].index[0] + 2 
             worksheet.update(f'A{row_index}', [values])
             st.success(f"Data for {data_row['Month']} {data_row['Year']} successfully UPDATED in Google Sheet (Row {row_index}).")
         else:
+            # Append new row
             worksheet.append_row(values, value_input_option='USER_ENTERED')
             st.success("Data successfully SAVED/APPENDED to Google Sheet.")
         
@@ -207,6 +139,20 @@ def save_to_gsheet(worksheet, data_row):
         st.error(f"Error saving to Google Sheet: {e}")
         st.error("Please ensure the Sheet ID is correct and the Service Account has 'Editor' access to the spreadsheet.")
         return False
+
+# ----------------------------------------------------------------------
+# --- Main Application Logic ---
+# ----------------------------------------------------------------------
+
+# Call get_connection() once and store the WORKSHEET object
+worksheet = get_connection()
+
+# --- CRITICAL ERROR CHECK ---
+if worksheet is None:
+    st.error("🚨 App stopped. Please resolve the Google Sheets connection error displayed above.")
+    st.stop()
+# ----------------------------
+
 
 # --- State Initialization ---
 if 'initialized' not in st.session_state:
@@ -257,9 +203,6 @@ def update_session_state(data):
 
 
 # --- Input / UI Layout ---
-
-# Call get_connection() once and store the WORKSHEET object
-worksheet = get_connection()
 months = list(calendar.month_name)[1:]
 
 # Top Row for Month/Year/Load
@@ -274,10 +217,11 @@ with col_y:
 with col_load:
     st.write("---") # Spacer
     load_button = st.button("LOAD EXISTING DATA", use_container_width=True)
-    if load_button and worksheet:
+    if load_button:
         with st.spinner(f"Loading data for {st.session_state.input_month} {st.session_state.input_year}..."):
             loaded_data = load_data_from_gsheet(worksheet, st.session_state.input_month, st.session_state.input_year)
             update_session_state(loaded_data)
+            # Rerun is safe here because connection failure is handled by st.stop() earlier
             st.experimental_rerun()
 
 # --- Income and Savings ---
@@ -288,9 +232,9 @@ with col_inc:
 with col_sav:
     st.number_input("Input Monthly Savings (₹):", min_value=0.0, format="%.2f", key='savings', value=st.session_state.savings)
 
-# --- EXPENSE INPUTS (Omitted for brevity, but all expense blocks follow here) ---
+# --- EXPENSE INPUTS ---
 st.header("Monthly Expenses")
-# ... (Groceries and Other Expenses UI blocks) ...
+
 with st.expander("🛒 Groceries (20 Custom Slots)", expanded=True):
     st.markdown("Enter Item Name and Amount for up to 20 grocery items.")
 
@@ -379,7 +323,7 @@ st.markdown("---")
 
 if st.button("SAVE EXPENSES TO GOOGLE SHEET", use_container_width=True):
     if not worksheet:
-        st.error("Cannot save: Google Sheets connection failed.")
+        st.error("Cannot save: Google Sheets connection failed. Please resolve the connection error.")
     else:
         data_to_save = {
             "Month": st.session_state.input_month,
@@ -448,5 +392,3 @@ if not df_chart.empty:
         st.plotly_chart(fig_pie, use_container_width=True)
 else:
     st.info("Enter some expenses to view the charts!")
-
-
