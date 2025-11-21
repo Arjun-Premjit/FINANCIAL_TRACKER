@@ -71,8 +71,7 @@ def get_connection():
         # Display specific error message for easier debugging
         st.error(f"Authentication Error: Could not connect to Google Sheets. Check your `secrets.toml` structure (should be nested under 'credentials') and sheet permissions. Details: {e}")
         return None
-
-     if st.button("SAVE EXPENSES TO GOOGLE SHEET", use_container_width=True):
+    if st.button("SAVE EXPENSES TO GOOGLE SHEET", use_container_width=True):
          if not worksheet:
              st.error("Cannot save: Google Sheets connection failed. Please resolve the connection error.")
          else:
@@ -384,6 +383,7 @@ if not df_chart.empty:
         st.plotly_chart(fig_pie, use_container_width=True)
 else:
     st.info("Enter some expenses to view the charts!")
+
 
 
 
