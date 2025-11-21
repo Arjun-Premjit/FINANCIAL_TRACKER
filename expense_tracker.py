@@ -97,6 +97,27 @@ def load_data_from_gsheet(worksheet, month_name, year):
     except Exception as e:
         st.error(f"Error loading data from Google Sheet: {e}")
         return {}
+21 lines
+   if st.button("SAVE EXPENSES TO GOOGLE SHEET", use_container_width=True):
+       if not worksheet:
+           st.error("Cannot save: Google Sheets connection failed.")
+       else:
+           # Build with explicit conversions
+           data_to_save = {
+               "Month": str(st.session_state.input_month),
+               "Year": str(st.session_state.input_year),
+               "Income": float(st.session_state.income),
+               "Savings": float(st.session_state.savings),
+               "Total_Expenses": float(total_expenses),
+           }
+           
+           for k in fixed_expense_keys:
+               data_to_save[k] = float(st.session_state.get(k, 0.0))
+           
+           for k, v in st.session_state.grocery_items.items():
+               data_to_save[k] = float(v['amount'])
+           
+           save_to_gsheet(worksheet, data_to_save)
 
 def save_to_gsheet(worksheet, data_row):
      if not worksheet:
@@ -389,6 +410,7 @@ if not df_chart.empty:
         st.plotly_chart(fig_pie, use_container_width=True)
 else:
     st.info("Enter some expenses to view the charts!")
+
 
 
 
