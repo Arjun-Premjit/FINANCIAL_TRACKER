@@ -72,51 +72,26 @@ def get_connection():
         st.error(f"Authentication Error: Could not connect to Google Sheets. Check your `secrets.toml` structure (should be nested under 'credentials') and sheet permissions. Details: {e}")
         return None
 
-def load_data_from_gsheet(worksheet, month_name, year):
-    """Loads a single month's record from the Google Sheet using the passed worksheet object."""
-    if not worksheet:
-        return {}
-    
-    try:
-        # Fetches all rows, turning them into a list of dictionaries where keys are column headers.
-        records = worksheet.get_all_records()
-        
-        # Ensure year is treated as string for comparison, as data from gspread is often string/mixed.
-        target_year_str = str(year)
-        
-        for record in records:
-            # Cast the 'Year' column from the record to string for consistent comparison
-            sheet_year_str = str(record.get("Year", ""))
-            
-            # Case-sensitive check for Month and Year
-            if record.get("Month") == month_name and sheet_year_str == target_year_str:
-                return record # Found a matching record
-        
-        return {} # Returns empty dict if no match found
-
-    except Exception as e:
-        st.error(f"Error loading data from Google Sheet: {e}")
-        return {}
-    if st.button("SAVE EXPENSES TO GOOGLE SHEET", use_container_width=True):
-        if not worksheet:
-           st.error("Cannot save: Google Sheets connection failed.")
-        else:
-           # Build with explicit conversions
-           data_to_save = {
-               "Month": str(st.session_state.input_month),
-               "Year": str(st.session_state.input_year),
-               "Income": float(st.session_state.income),
-               "Savings": float(st.session_state.savings),
-               "Total_Expenses": float(total_expenses),
-           }
-           
-           for k in fixed_expense_keys:
-               data_to_save[k] = float(st.session_state.get(k, 0.0))
-           
-           for k, v in st.session_state.grocery_items.items():
-               data_to_save[k] = float(v['amount'])
-           
-           save_to_gsheet(worksheet, data_to_save)
+     if st.button("SAVE EXPENSES TO GOOGLE SHEET", use_container_width=True):
+         if not worksheet:
+             st.error("Cannot save: Google Sheets connection failed. Please resolve the connection error.")
+         else:
+             # Build with explicit conversions to avoid int64/Ellipsis
+             data_to_save = {
+                 "Month": str(st.session_state.input_month),
+                 "Year": str(st.session_state.input_year),
+                 "Income": float(st.session_state.income),
+                 "Savings": float(st.session_state.savings),
+                 "Total_Expenses": float(total_expenses),
+             }
+             
+             for k in fixed_expense_keys:
+                 data_to_save[k] = float(st.session_state.get(k, 0.0))
+             
+             for k, v in st.session_state.grocery_items.items():
+                 data_to_save[k] = float(v['amount'])
+             
+             save_to_gsheet(worksheet, data_to_save)
 
 def save_to_gsheet(worksheet, data_row):
      if not worksheet:
@@ -409,6 +384,7 @@ if not df_chart.empty:
         st.plotly_chart(fig_pie, use_container_width=True)
 else:
     st.info("Enter some expenses to view the charts!")
+
 
 
 
