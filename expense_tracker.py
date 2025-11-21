@@ -97,7 +97,6 @@ def load_data_from_gsheet(worksheet, month_name, year):
     except Exception as e:
         st.error(f"Error loading data from Google Sheet: {e}")
         return {}
-21 lines
    if st.button("SAVE EXPENSES TO GOOGLE SHEET", use_container_width=True):
        if not worksheet:
            st.error("Cannot save: Google Sheets connection failed.")
@@ -410,6 +409,7 @@ if not df_chart.empty:
         st.plotly_chart(fig_pie, use_container_width=True)
 else:
     st.info("Enter some expenses to view the charts!")
+
 
 
 
