@@ -98,7 +98,7 @@ def load_data_from_gsheet(worksheet, month_name, year):
         st.error(f"Error loading data from Google Sheet: {e}")
         return {}
 
- def save_to_gsheet(worksheet, data_row):
+def save_to_gsheet(worksheet, data_row):
      if not worksheet:
          return False
      try:  # Add this
@@ -389,5 +389,6 @@ if not df_chart.empty:
         st.plotly_chart(fig_pie, use_container_width=True)
 else:
     st.info("Enter some expenses to view the charts!")
+
 
 
