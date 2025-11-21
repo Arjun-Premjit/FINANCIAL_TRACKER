@@ -100,30 +100,25 @@ def load_data_from_gsheet(worksheet, month_name, year):
 
 def save_to_gsheet(worksheet, data_row):
     """Saves/appends a row of data to the Google Sheet using the passed worksheet object."""
-    if not worksheet:
-        return False
-    
-    try:
-        # 1. Load all existing data
-        df_existing = pd.DataFrame(worksheet.get_all_records())
-        df_new = pd.DataFrame([data_row])
-        
-        # 2. Handle headers/columns (Ensuring new expense columns are added)
-        if df_existing.empty:
-            final_columns = df_new.columns.tolist()
-            # Append headers to the sheet if it's empty
-            worksheet.append_row(final_columns, value_input_option='USER_ENTERED')
-            # Re-fetch the existing data to include the new header row for the next step's check
-            df_existing = pd.DataFrame(worksheet.get_all_records())
-            st.success("Sheet headers initialized.")
+    if st.button("SAVE EXPENSES TO GOOGLE SHEET", use_container_width=True):
+        if not worksheet:
+            st.error("Cannot save: Google Sheets connection failed. Please resolve the connection error.")
         else:
-            existing_cols = df_existing.columns.tolist()
-            new_cols = df_new.columns.tolist()
-            final_columns = existing_cols
-            # Ensure all new columns are present in the final column list
-            for col in new_cols:
-                if col not in final_columns:
-                    final_columns.append(col)
+            data_to_save = {
+                "Month": st.session_state.input_month,
+                "Year": str(st.session_state.input_year),  # Convert to string to avoid int64 serialization issues
+                "Income": st.session_state.income,
+                "Savings": st.session_state.savings,
+                "Total_Expenses": total_expenses,
+            }
+            
+            for k in fixed_expense_keys:
+                data_to_save[k] = st.session_state.get(k, 0.0)
+                
+            for k, v in st.session_state.grocery_items.items():
+                # Only save the amount for the Grocery Item key, not the name
+                data_to_save[k] = v['amount']
+            save_to_gsheet(worksheet, data_to_save)
 
         # 3. Prepare data for saving
         # Reindex the new data row to match the overall column order, filling missing columns with 0.0
@@ -440,3 +435,4 @@ if not df_chart.empty:
         st.plotly_chart(fig_pie, use_container_width=True)
 else:
     st.info("Enter some expenses to view the charts!")
+
