@@ -98,62 +98,16 @@ def load_data_from_gsheet(worksheet, month_name, year):
         st.error(f"Error loading data from Google Sheet: {e}")
         return {}
 
-def save_to_gsheet(worksheet, data_row):
-    """Saves/appends a row of data to the Google Sheet using the passed worksheet object."""
-    if st.button("SAVE EXPENSES TO GOOGLE SHEET", use_container_width=True):
-        if not worksheet:
-            st.error("Cannot save: Google Sheets connection failed. Please resolve the connection error.")
-        else:
-            data_to_save = {
-                "Month": st.session_state.input_month,
-                "Year": str(st.session_state.input_year),  # Convert to string to avoid int64 serialization issues
-                "Income": st.session_state.income,
-                "Savings": st.session_state.savings,
-                "Total_Expenses": total_expenses,
-            }
-            
-            for k in fixed_expense_keys:
-                data_to_save[k] = st.session_state.get(k, 0.0)
-                
-            for k, v in st.session_state.grocery_items.items():
-                # Only save the amount for the Grocery Item key, not the name
-                data_to_save[k] = v['amount']
-            save_to_gsheet(worksheet, data_to_save)
-
-        # 3. Prepare data for saving
-        # Reindex the new data row to match the overall column order, filling missing columns with 0.0
-        df_to_save = df_new.reindex(columns=final_columns, fill_value=0.0)
-        values = df_to_save.iloc[0].tolist()
-
-        # 4. Check for existing entry (Month/Year match)
-        # Ensure 'Year' column in existing DataFrame is treated as string for reliable comparison
-        if 'Year' in df_existing.columns:
-            month_year_check = (df_existing['Month'] == data_row['Month']) & (df_existing['Year'].astype(str) == str(data_row['Year']))
-        else:
-            month_year_check = pd.Series(False, index=df_existing.index) # If no 'Year' column, assume no match
-        
-        if month_year_check.any():
-            # Update existing row
-            # +2: +1 for 1-based indexing, +1 for the header row
-            row_index = df_existing[month_year_check].index[0] + 2 
-            
-            # Update entire row starting from column A
-            # We need the range in A1 notation. If the sheet has Z columns, we need to update that many cells.
-            end_col = gspread.utils.rowcol_to_a1(1, len(final_columns))[0]
-            range_to_update = f'A{row_index}:{end_col}{row_index}'
-            worksheet.update(range_to_update, [values], value_input_option='USER_ENTERED')
-            st.success(f"Data for {data_row['Month']} {data_row['Year']} successfully UPDATED in Google Sheet (Row {row_index}).")
-        else:
-            # Append new row
-            worksheet.append_row(values, value_input_option='USER_ENTERED')
-            st.success("Data successfully SAVED/APPENDED to Google Sheet.")
-        
-        return True
-
-    except Exception as e:
-        st.error(f"Error saving to Google Sheet: {e}")
-        st.error("Please ensure the Sheet ID is correct and the Service Account has 'Editor' access to the spreadsheet.")
-        return False
+     def save_to_gsheet(worksheet, data_row):
+         if not worksheet:
+             return False
+         try:  # Add this
+             # Your existing code here
+             worksheet.update(...)
+             # ... rest of the function
+         except Exception as e:  # Now this is valid
+             st.error(f"Error saving to Google Sheet: {e}")
+             return False
 
 # ----------------------------------------------------------------------
 # --- Main Application Logic ---
