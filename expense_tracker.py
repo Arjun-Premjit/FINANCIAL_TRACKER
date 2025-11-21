@@ -98,16 +98,16 @@ def load_data_from_gsheet(worksheet, month_name, year):
         st.error(f"Error loading data from Google Sheet: {e}")
         return {}
 
-     def save_to_gsheet(worksheet, data_row):
-         if not worksheet:
-             return False
-         try:  # Add this
-             # Your existing code here
-             worksheet.update(...)
-             # ... rest of the function
-         except Exception as e:  # Now this is valid
-             st.error(f"Error saving to Google Sheet: {e}")
-             return False
+ def save_to_gsheet(worksheet, data_row):
+     if not worksheet:
+         return False
+     try:  # Add this
+         # Your existing code here
+         worksheet.update(...)
+         # ... rest of the function
+     except Exception as e:  # Now this is valid
+         st.error(f"Error saving to Google Sheet: {e}")
+         return False
 
 # ----------------------------------------------------------------------
 # --- Main Application Logic ---
@@ -389,4 +389,5 @@ if not df_chart.empty:
         st.plotly_chart(fig_pie, use_container_width=True)
 else:
     st.info("Enter some expenses to view the charts!")
+
 
