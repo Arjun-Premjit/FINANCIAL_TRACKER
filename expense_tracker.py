@@ -46,51 +46,33 @@ st.markdown('<h1 class="stTitle">Financial Tracker 🧾💲🛒</h1>', unsafe_al
 
 @st.cache_resource(ttl=3600)
 def get_connection():
-    """
-    Authenticate, connect to Google Sheets using the standard nested 
-    credential structure (st.secrets["google"]["credentials"]), 
-    and return the specific Worksheet object (Sheet2).
-    """
-    try:
-        # 1. Use the standard nested structure from app.py
-        creds_dict = st.secrets["google"]["credentials"]
-        
-        creds = Credentials.from_service_account_info(creds_dict, scopes=[
-            "https://www.googleapis.com/auth/spreadsheets",
-            "https://www.googleapis.com/auth/drive"
-        ])
-        client = gspread.authorize(creds)
-        
-        sheet_id = st.secrets["google"]["sheet_id"]
-        
-        # 2. Access the second sheet (index 1) as implied by WORKSHEET_TITLE = "Sheet2"
-        worksheet = client.open_by_key(sheet_id).get_worksheet(1)
-        return worksheet
-        
-    except Exception as e:
-        # Display specific error message for easier debugging
-        st.error(f"Authentication Error: Could not connect to Google Sheets. Check your `secrets.toml` structure (should be nested under 'credentials') and sheet permissions. Details: {e}")
-        return None
-    if st.button("SAVE EXPENSES TO GOOGLE SHEET", use_container_width=True):
-         if not worksheet:
-             st.error("Cannot save: Google Sheets connection failed. Please resolve the connection error.")
-         else:
-             # Build with explicit conversions to avoid int64/Ellipsis
-             data_to_save = {
-                 "Month": str(st.session_state.input_month),
-                 "Year": str(st.session_state.input_year),
-                 "Income": float(st.session_state.income),
-                 "Savings": float(st.session_state.savings),
-                 "Total_Expenses": float(total_expenses),
-             }
-             
-             for k in fixed_expense_keys:
-                 data_to_save[k] = float(st.session_state.get(k, 0.0))
-             
-             for k, v in st.session_state.grocery_items.items():
-                 data_to_save[k] = float(v['amount'])
-             
-             save_to_gsheet(worksheet, data_to_save)
+  """Authenticate and connect to Google Sheets."""
+  try:
+    creds_dict = {
+        "type": st.secrets["google"]["type"],
+        "project_id": st.secrets["google"]["project_id"],
+        "private_key_id": st.secrets["google"]["private_key_id"],
+        "private_key": st.secrets["google"]["private_key"],
+        "client_email": st.secrets["google"]["client_email"],
+        "client_id": st.secrets["google"]["client_id"],
+        "auth_uri": st.secrets["google"]["auth_uri"],
+        "token_uri": st.secrets["google"]["token_uri"],
+        "auth_provider_x509_cert_url": st.secrets["google"]["auth_provider_x509_cert_url"],
+        "client_x509_cert_url": st.secrets["google"]["client_x509_cert_url"],
+        "universe_domain": st.secrets["google"]["universe_domain"]
+    }
+    creds = Credentials.from_service_account_info(creds_dict, scopes=[
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ])
+    client = gspread.authorize(creds)
+    sheet_id = st.secrets["google"]["sheet_id"]
+    sheet = client.open_by_key(sheet_id).sheet1  # Access the first sheet
+    return sheet
+  except Exception as e:
+    st.error(f"Connection error: {e}. Verify your Google service account and sheet permissions.")
+    return None
+   
 
 def save_to_gsheet(worksheet, data_row):
      if not worksheet:
@@ -383,6 +365,7 @@ if not df_chart.empty:
         st.plotly_chart(fig_pie, use_container_width=True)
 else:
     st.info("Enter some expenses to view the charts!")
+
 
 
 
