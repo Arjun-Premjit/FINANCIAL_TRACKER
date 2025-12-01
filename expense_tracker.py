@@ -21,18 +21,18 @@ def get_connection():
       "auth_provider_x509_cert_url": st.secrets["google"]["auth_provider_x509_cert_url"],
       "client_x509_cert_url": st.secrets["google"]["client_x509_cert_url"],
       "universe_domain": st.secrets["google"]["universe_domain"]
-      }
-      creds = Credentials.from_service_account_info(creds_dict, scopes=[
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive"
-      ])
-      client = gspread.authorize(creds)
-      sheet_id = st.secrets["google"]["sheet_id"]
+    }
+    creds = Credentials.from_service_account_info(creds_dict, scopes=[
+      "https://www.googleapis.com/auth/spreadsheets",
+      "https://www.googleapis.com/auth/drive"
+    ])
+    client = gspread.authorize(creds)
+    sheet_id = st.secrets["google"]["sheet_id"]
         
         # FIX APPLIED HERE: Use get_worksheet(0) for the first sheet (index 0)
-      sheet = client.open_by_key(sheet_id).get_worksheet(1) 
+    sheet = client.open_by_key(sheet_id).get_worksheet(1) 
         
-      return sheet
+    return sheet
   except Exception as e:
            # This check helps distinguish between the gspread error and real connection issues
       if "'Spreadsheet' object has no attribute 'sheet2'" in str(e):
@@ -212,6 +212,7 @@ def app():
 
 if __name__ == "__main__":
     app()
+
 
 
 
