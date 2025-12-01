@@ -41,32 +41,34 @@ st.markdown('<h1 class="stTitle">Financial Tracker 🧾💲🛒</h1>', unsafe_al
 # ----------------------------------------------------------------------
 
 @st.cache_resource(ttl=3600)
+
 def get_connection():
-    """Authenticate and connect to Google Sheets."""
-    try:
-        creds_dict = {
-            "type": st.secrets["google"]["type"],
-            "project_id": st.secrets["google"]["project_id"],
-            "private_key_id": st.secrets["google"]["private_key_id"],
-            "private_key": st.secrets["google"]["private_key"],
-            "client_email": st.secrets["google"]["client_email"],
-            "client_id": st.secrets["google"]["client_id"],
-            "auth_uri": st.secrets["google"]["auth_uri"],
-            "token_uri": st.secrets["google"]["token_uri"],
-            "auth_provider_x509_cert_url": st.secrets["google"]["auth_provider_x509_cert_url"],
-            "client_x509_cert_url": st.secrets["google"]["client_x509_cert_url"],
-            "universe_domain": st.secrets["google"]["universe_domain"]
-        }
-        creds = Credentials.from_service_account_info(creds_dict, scopes=[
-            "https://www.googleapis.com/auth/spreadsheets",
-            "https://www.googleapis.com/auth/drive"
-        ])
-        client = gspread.authorize(creds)
-        sheet = client.open_by_key(GOOGLE_SHEET_ID).worksheet(WORKSHEET_TITLE)
-        return sheet
-    except Exception as e:
-        st.error(f"Connection error: {e}. Verify your Google service account and sheet permissions.")
-        return None
+  """Authenticate and connect to Google Sheets."""
+  try:
+    creds_dict = {
+        "type": st.secrets["google"]["type"],
+        "project_id": st.secrets["google"]["project_id"],
+        "private_key_id": st.secrets["google"]["private_key_id"],
+        "private_key": st.secrets["google"]["private_key"],
+        "client_email": st.secrets["google"]["client_email"],
+        "client_id": st.secrets["google"]["client_id"],
+        "auth_uri": st.secrets["google"]["auth_uri"],
+        "token_uri": st.secrets["google"]["token_uri"],
+        "auth_provider_x509_cert_url": st.secrets["google"]["auth_provider_x509_cert_url"],
+        "client_x509_cert_url": st.secrets["google"]["client_x509_cert_url"],
+        "universe_domain": st.secrets["google"]["universe_domain"]
+    }
+    creds = Credentials.from_service_account_info(creds_dict, scopes=[
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ])
+    client = gspread.authorize(creds)
+    sheet_id = st.secrets["google"]["sheet_id"]
+    sheet = client.open_by_key(sheet_id).sheet2  # Access the first sheet
+    return sheet
+  except Exception as e:
+    st.error(f"Connection error: {e}. Verify your Google service account and sheet permissions.")
+    return None
 
 def load_data_from_gsheet(worksheet, month, year):
     """Load data for a specific month/year."""
@@ -325,3 +327,4 @@ df_chart = df_chart[df_chart['Amount'] > 0]
 
 if not df_chart.empty:
     col_bar,
+
