@@ -8,7 +8,6 @@ import json
 from google.oauth2.service_account import Credentials
 
 def get_connection():
-    """Authenticate and connect to Google Sheets."""
     try:
         creds_dict = {
             "type": st.secrets["google"]["type"],
@@ -213,3 +212,4 @@ def app():
 
 if __name__ == "__main__":
     app()
+
