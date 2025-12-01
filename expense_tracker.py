@@ -5,15 +5,12 @@ import gspread
 from google.oauth2.service_account import Credentials
 import plotly.express as px
 import calendar
-import io
 
 # --- Google Sheets Configuration ---
-# NOTE: This ID MUST match the ID in your st.secrets structure.
-GOOGLE_SHEET_ID = "1gaFzfZOCKhrEklluRiyzdlJ7im5_BSnBrVjE3PHWQlI"
-WORKSHEET_TITLE = "Sheet2"
+GOOGLE_SHEET_ID = st.secrets["google"]["sheet_id"]
+WORKSHEET_TITLE = "Sheet2"  # Change to "Sheet2" if needed
 
 # --- UI Setup and Styling ---
-
 st.set_page_config(
     page_title="Financial Tracker 🧾💲🛒",
     layout="wide",
@@ -39,65 +36,82 @@ st.markdown(
 
 st.markdown('<h1 class="stTitle">Financial Tracker 🧾💲🛒</h1>', unsafe_allow_html=True)
 
-
 # ----------------------------------------------------------------------
-# --- Google Sheets Functions (RECTIFIED CONNECTION) ---
+# --- Google Sheets Functions ---
 # ----------------------------------------------------------------------
 
 @st.cache_resource(ttl=3600)
 def get_connection():
-  """Authenticate and connect to Google Sheets."""
-  try:
-    creds_dict = {
-        "type": st.secrets["google"]["type"],
-        "project_id": st.secrets["google"]["project_id"],
-        "private_key_id": st.secrets["google"]["private_key_id"],
-        "private_key": st.secrets["google"]["private_key"],
-        "client_email": st.secrets["google"]["client_email"],
-        "client_id": st.secrets["google"]["client_id"],
-        "auth_uri": st.secrets["google"]["auth_uri"],
-        "token_uri": st.secrets["google"]["token_uri"],
-        "auth_provider_x509_cert_url": st.secrets["google"]["auth_provider_x509_cert_url"],
-        "client_x509_cert_url": st.secrets["google"]["client_x509_cert_url"],
-        "universe_domain": st.secrets["google"]["universe_domain"]
-    }
-    creds = Credentials.from_service_account_info(creds_dict, scopes=[
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive"
-    ])
-    client = gspread.authorize(creds)
-    sheet_id = st.secrets["google"]["sheet_id"]
-    sheet = client.open_by_key(sheet_id).sheet1  # Access the first sheet
-    return sheet
-  except Exception as e:
-    st.error(f"Connection error: {e}. Verify your Google service account and sheet permissions.")
-    return None
-   
+    """Authenticate and connect to Google Sheets."""
+    try:
+        creds_dict = {
+            "type": st.secrets["google"]["type"],
+            "project_id": st.secrets["google"]["project_id"],
+            "private_key_id": st.secrets["google"]["private_key_id"],
+            "private_key": st.secrets["google"]["private_key"],
+            "client_email": st.secrets["google"]["client_email"],
+            "client_id": st.secrets["google"]["client_id"],
+            "auth_uri": st.secrets["google"]["auth_uri"],
+            "token_uri": st.secrets["google"]["token_uri"],
+            "auth_provider_x509_cert_url": st.secrets["google"]["auth_provider_x509_cert_url"],
+            "client_x509_cert_url": st.secrets["google"]["client_x509_cert_url"],
+            "universe_domain": st.secrets["google"]["universe_domain"]
+        }
+        creds = Credentials.from_service_account_info(creds_dict, scopes=[
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive"
+        ])
+        client = gspread.authorize(creds)
+        sheet = client.open_by_key(GOOGLE_SHEET_ID).worksheet(WORKSHEET_TITLE)
+        return sheet
+    except Exception as e:
+        st.error(f"Connection error: {e}. Verify your Google service account and sheet permissions.")
+        return None
+
+def load_data_from_gsheet(worksheet, month, year):
+    """Load data for a specific month/year."""
+    try:
+        records = worksheet.get_all_records()
+        for record in records:
+            if record.get("Month") == month and int(record.get("Year", 0)) == year:
+                return record
+        return {}
+    except Exception as e:
+        st.error(f"Error loading data: {e}")
+        return {}
 
 def save_to_gsheet(worksheet, data_row):
-     if not worksheet:
-         return False
-     try:  # Add this
-         # Your existing code here
-         worksheet.update(...)
-         # ... rest of the function
-     except Exception as e:  # Now this is valid
-         st.error(f"Error saving to Google Sheet: {e}")
-         return False
+    """Save data row to Google Sheet."""
+    if not worksheet:
+        return False
+    try:
+        # Find existing row or append
+        records = worksheet.get_all_records()
+        row_index = None
+        for i, record in enumerate(records, start=2):  # Start from row 2 (after header)
+            if record.get("Month") == data_row["Month"] and int(record.get("Year", 0)) == data_row["Year"]:
+                row_index = i
+                break
+        if row_index:
+            # Update existing row
+            values = list(data_row.values())
+            worksheet.update(f"A{row_index}:Z{row_index}", [values])
+        else:
+            # Append new row
+            worksheet.append_row(list(data_row.values()))
+        return True
+    except Exception as e:
+        st.error(f"Error saving to Google Sheet: {e}")
+        return False
 
 # ----------------------------------------------------------------------
 # --- Main Application Logic ---
 # ----------------------------------------------------------------------
 
-# Call get_connection() once and store the WORKSHEET object
 worksheet = get_connection()
-
-# --- CRITICAL ERROR CHECK ---
 if worksheet is None:
     st.error("🚨 App stopped. Please resolve the Google Sheets connection error displayed above.")
     st.stop()
-# ----------------------------
-
 
 # --- State Initialization ---
 if 'initialized' not in st.session_state:
@@ -116,26 +130,20 @@ if 'initialized' not in st.session_state:
         'Rice': 0.0, 'Milk': 0.0, 'Other_Expenses': 0.0
     }
     for k, v in fixed_expenses.items():
-        if k not in st.session_state:
-            st.session_state[k] = v
+        st.session_state[k] = v
             
     st.session_state.grocery_items = {}
     for i in range(1, 21):
-        # Initialize grocery items with a default name and amount
         st.session_state.grocery_items[f"Grocery_Item_{i}"] = {"name": f"Item {i}", "amount": 0.0}
 
 def update_session_state(data):
-    """Updates session state with loaded data. FIXES THE RERUN CRASH."""
-    
-    # 1. Handle case where no data is found for the selected month/year
+    """Updates session state with loaded data."""
     if not data:
         st.warning(f"No existing data found for {st.session_state.input_month} {st.session_state.input_year}. Resetting amounts.")
         
-        # Reset Income and Savings
         st.session_state.income = 0.0
         st.session_state.savings = 0.0
         
-        # Reset Fixed Expenses (Iterate directly over fixed keys for safety)
         fixed_keys = ['House_Tax_A', 'Water_Tax', 'Drainage_Tax', 'House_Tax_B', 
                       'Electricity_House_A', 'Electricity_House_B', 'RD', 'GAS', 
                       'Telephone_Phone1', 'Telephone_Phone2', 'Telephone_Phone3', 'Telephone_Landline',
@@ -143,39 +151,26 @@ def update_session_state(data):
         for k in fixed_keys:
             st.session_state[k] = 0.0
         
-        # Reset Grocery Items (Iterate directly over the nested dict for safety - FIX)
         for key in st.session_state.grocery_items.keys():
-            # Only reset the amount, keep the user's last entered item name
             st.session_state.grocery_items[key]['amount'] = 0.0
             
         return
     
-    # 2. Load data from the matching record
     st.session_state.income = float(data.get('Income', 0.0))
     st.session_state.savings = float(data.get('Savings', 0.0))
     
-    # Load Fixed Expenses
     for k in ['House_Tax_A', 'Water_Tax', 'Drainage_Tax', 'House_Tax_B', 
               'Electricity_House_A', 'Electricity_House_B', 'RD', 'GAS', 
               'Telephone_Phone1', 'Telephone_Phone2', 'Telephone_Phone3', 'Telephone_Landline',
               'Rice', 'Milk', 'Other_Expenses']:
         st.session_state[k] = float(data.get(k, 0.0))
         
-    # Load Grocery Items
     for key in st.session_state.grocery_items.keys():
-        # Load the amount
         st.session_state.grocery_items[key]['amount'] = float(data.get(key, 0.0))
-        
-        # Check if a corresponding name column exists in the sheet data (e.g., Grocery_Item_1_name)
-        # Although the current save logic only saves the amount, if the user manually added a name 
-        # column in the sheet, this is how you would load it. Sticking to the current data model 
-        # where the name is stored only in the session state, we load the amount only.
-
 
 # --- Input / UI Layout ---
 months = list(calendar.month_name)[1:]
 
-# Top Row for Month/Year/Load
 col_m, col_y, col_load = st.columns([1, 1, 1])
 
 with col_m:
@@ -185,16 +180,12 @@ with col_y:
     st.number_input("Year:", min_value=2000, max_value=2100, step=1, key='input_year')
 
 with col_load:
-    st.write("---") # Spacer
     load_button = st.button("LOAD EXISTING DATA", use_container_width=True)
     if load_button:
         with st.spinner(f"Loading data for {st.session_state.input_month} {st.session_state.input_year}..."):
-            # Load data
             loaded_data = load_data_from_gsheet(worksheet, st.session_state.input_month, st.session_state.input_year)
-            # Update state (where the crash fix was implemented)
             update_session_state(loaded_data)
-            # Rerun is now safe
-            st.experimental_rerun() # Line 225
+            st.rerun()
 
 # --- Income and Savings ---
 st.header("Income & Savings")
@@ -209,7 +200,7 @@ st.header("Monthly Expenses")
 
 with st.expander("🛒 Groceries (20 Custom Slots)", expanded=True):
     st.markdown("Enter Item Name and Amount for up to 20 grocery items.")
-
+    
     item_keys = list(st.session_state.grocery_items.keys())
     
     for i, item_key in enumerate(item_keys):
@@ -270,9 +261,7 @@ with st.expander("🧾 Other Expenses", expanded=False):
     with col_other:
         st.number_input("Other Expenses (₹):", min_value=0.0, format="%.2f", key='Other_Expenses', value=st.session_state.Other_Expenses)
 
-
 # --- Calculation and Save ---
-
 fixed_expense_keys = ['House_Tax_A', 'Water_Tax', 'Drainage_Tax', 'House_Tax_B', 
                       'Electricity_House_A', 'Electricity_House_B', 'RD', 'GAS', 
                       'Telephone_Phone1', 'Telephone_Phone2', 'Telephone_Phone3', 'Telephone_Landline',
@@ -295,7 +284,7 @@ st.markdown("---")
 
 if st.button("SAVE EXPENSES TO GOOGLE SHEET", use_container_width=True):
     if not worksheet:
-        st.error("Cannot save: Google Sheets connection failed. Please resolve the connection error.")
+        st.error("Cannot save: Google Sheets connection failed.")
     else:
         data_to_save = {
             "Month": st.session_state.input_month,
@@ -309,14 +298,15 @@ if st.button("SAVE EXPENSES TO GOOGLE SHEET", use_container_width=True):
             data_to_save[k] = st.session_state.get(k, 0.0)
             
         for k, v in st.session_state.grocery_items.items():
-            # Only save the amount for the Grocery Item key, not the name
             data_to_save[k] = v['amount']
 
-        save_to_gsheet(worksheet, data_to_save)
-
+        success = save_to_gsheet(worksheet, data_to_save)
+        if success:
+            st.success("Data saved successfully!")
+        else:
+            st.error("Failed to save data.")
 
 # --- VISUALIZATION ---
-
 st.header("Expense Visualization")
 chart_data = {
     "TAX": st.session_state.House_Tax_A + st.session_state.Water_Tax + st.session_state.Drainage_Tax + st.session_state.House_Tax_B,
@@ -334,44 +324,4 @@ df_chart = pd.DataFrame(list(chart_data.items()), columns=['Category', 'Amount']
 df_chart = df_chart[df_chart['Amount'] > 0]
 
 if not df_chart.empty:
-    col_bar, col_pie = st.columns(2)
-
-    with col_bar:
-        st.subheader("Expense Breakdown (Bar)")
-        fig_bar = px.bar(
-            df_chart, 
-            x='Category', 
-            y='Amount', 
-            title='Major Expense Categories',
-            template='plotly_dark'
-        )
-        fig_bar.update_traces(marker_color='#00ffff')
-        fig_bar.update_xaxes(showgrid=False)
-        fig_bar.update_yaxes(showgrid=False)
-        st.plotly_chart(fig_bar, use_container_width=True)
-
-    with col_pie:
-        st.subheader("Expense Distribution (Donut)")
-        fig_pie = px.pie(
-            df_chart, 
-            values='Amount', 
-            names='Category', 
-            hole=0.4, 
-            title='Expense Percentage',
-            template='plotly_dark'
-        )
-        fig_pie.update_xaxes(showgrid=False)
-        fig_pie.update_yaxes(showgrid=False)
-        st.plotly_chart(fig_pie, use_container_width=True)
-else:
-    st.info("Enter some expenses to view the charts!")
-
-
-
-
-
-
-
-
-
-
+    col_bar,
