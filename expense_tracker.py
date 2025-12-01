@@ -33,8 +33,8 @@ def get_connection():
         sheet = client.open_by_key(sheet_id).get_worksheet(1) 
         
         return sheet
-    except Exception as e:
-        # This check helps distinguish between the gspread error and real connection issues
+    except Exception as e:
+           # This check helps distinguish between the gspread error and real connection issues
         if "'Spreadsheet' object has no attribute 'sheet2'" in str(e):
             st.error("Connection error: Incorrect method to access the worksheet (used .sheet1). This has been corrected internally.")
         
@@ -212,6 +212,7 @@ def app():
 
 if __name__ == "__main__":
     app()
+
 
 
 
