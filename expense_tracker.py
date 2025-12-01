@@ -8,35 +8,35 @@ import json
 from google.oauth2.service_account import Credentials
 
 def get_connection():
-    try:
-        creds_dict = {
-            "type": st.secrets["google"]["type"],
-            "project_id": st.secrets["google"]["project_id"],
-            "private_key_id": st.secrets["google"]["private_key_id"],
-            "private_key": st.secrets["google"]["private_key"],
-            "client_email": st.secrets["google"]["client_email"],
-            "client_id": st.secrets["google"]["client_id"],
-            "auth_uri": st.secrets["google"]["auth_uri"],
-            "token_uri": st.secrets["google"]["token_uri"],
-            "auth_provider_x509_cert_url": st.secrets["google"]["auth_provider_x509_cert_url"],
-            "client_x509_cert_url": st.secrets["google"]["client_x509_cert_url"],
-            "universe_domain": st.secrets["google"]["universe_domain"]
-        }
-        creds = Credentials.from_service_account_info(creds_dict, scopes=[
-            "https://www.googleapis.com/auth/spreadsheets",
-            "https://www.googleapis.com/auth/drive"
-        ])
-        client = gspread.authorize(creds)
-        sheet_id = st.secrets["google"]["sheet_id"]
+  try:
+    creds_dict = {
+      "type": st.secrets["google"]["type"],
+      "project_id": st.secrets["google"]["project_id"],
+      "private_key_id": st.secrets["google"]["private_key_id"],
+      "private_key": st.secrets["google"]["private_key"],
+      "client_email": st.secrets["google"]["client_email"],
+      "client_id": st.secrets["google"]["client_id"],
+      "auth_uri": st.secrets["google"]["auth_uri"],
+      "token_uri": st.secrets["google"]["token_uri"],
+      "auth_provider_x509_cert_url": st.secrets["google"]["auth_provider_x509_cert_url"],
+      "client_x509_cert_url": st.secrets["google"]["client_x509_cert_url"],
+      "universe_domain": st.secrets["google"]["universe_domain"]
+      }
+      creds = Credentials.from_service_account_info(creds_dict, scopes=[
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+      ])
+      client = gspread.authorize(creds)
+      sheet_id = st.secrets["google"]["sheet_id"]
         
         # FIX APPLIED HERE: Use get_worksheet(0) for the first sheet (index 0)
-        sheet = client.open_by_key(sheet_id).get_worksheet(1) 
+      sheet = client.open_by_key(sheet_id).get_worksheet(1) 
         
-        return sheet
-    except Exception as e:
+      return sheet
+  except Exception as e:
            # This check helps distinguish between the gspread error and real connection issues
-        if "'Spreadsheet' object has no attribute 'sheet2'" in str(e):
-            st.error("Connection error: Incorrect method to access the worksheet (used .sheet1). This has been corrected internally.")
+      if "'Spreadsheet' object has no attribute 'sheet2'" in str(e):
+        st.error("Connection error: Incorrect method to access the worksheet (used .sheet1). This has been corrected internally.")
         
         st.error(f"Connection error: {e}. Verify your Google service account and sheet permissions.")
         return None
@@ -212,6 +212,7 @@ def app():
 
 if __name__ == "__main__":
     app()
+
 
 
 
